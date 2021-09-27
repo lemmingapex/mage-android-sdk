@@ -9,6 +9,16 @@ Adheres to [Semantic Versioning](http://semver.org/).
 
 ##### Bug Fixes
 
+## [6.4.1](https://github.com/ngageoint/mage-android-sdk/releases/tag/6.4.1)
+
+#### Release Notes
+* Compatible with server 5.x and 6.x
+
+##### Features
+* Multi forms per observation.
+
+##### Bug Fixes
+
 ## [6.4.0](https://github.com/ngageoint/mage-android-sdk/releases/tag/6.4.0)
 
 ##### Features
