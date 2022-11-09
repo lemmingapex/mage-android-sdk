@@ -8,6 +8,8 @@ import com.j256.ormlite.stmt.DeleteBuilder;
 import com.j256.ormlite.stmt.QueryBuilder;
 import com.j256.ormlite.stmt.Where;
 
+import org.apache.commons.lang3.StringUtils;
+
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -59,7 +61,7 @@ public class EventHelper extends DaoHelper<Event> {
     /**
      * Only one-per JVM. Singleton.
      *
-     * @param pContext
+     * @param pContext context
      */
     private EventHelper(Context pContext) {
         super(pContext);
@@ -77,7 +79,7 @@ public class EventHelper extends DaoHelper<Event> {
 
     @Override
     public Event create(Event pEvent) throws EventException {
-        Event createdEvent = null;
+        Event createdEvent;
         try {
             createdEvent = eventDao.createIfNotExists(pEvent);
         } catch (SQLException sqle) {
@@ -98,7 +100,7 @@ public class EventHelper extends DaoHelper<Event> {
     }
 
 	public List<Event> readAll() throws EventException {
-		List<Event> events = new ArrayList<Event>();
+		List<Event> events = new ArrayList<>();
 		try {
 			events.addAll(eventDao.queryForAll());
 		} catch (SQLException sqle) {
@@ -152,7 +154,7 @@ public class EventHelper extends DaoHelper<Event> {
     }
 
     public List<Event> getEventsByTeam(Team pTeam) {
-        List<Event> events = new ArrayList<Event>();
+        List<Event> events = new ArrayList<>();
         try {
             QueryBuilder<TeamEvent, Long> teamEventQuery = teamEventDao.queryBuilder();
             teamEventQuery.selectColumns("event_id");
@@ -164,7 +166,7 @@ public class EventHelper extends DaoHelper<Event> {
 
             events = eventQuery.query();
             if(events == null) {
-                events = new ArrayList<Event>();
+                events = new ArrayList<>();
             }
 
         } catch (SQLException sqle) {
@@ -174,20 +176,20 @@ public class EventHelper extends DaoHelper<Event> {
     }
 
 	public List<Event> getEventsForCurrentUser() {
-		List<Event> events = new ArrayList<Event>();
-		try {
-			User currentUser = UserHelper.getInstance(mApplicationContext).readCurrentUser();
-			if (currentUser != null) {
-				events = getEventsByUser(currentUser);
-			}
-		} catch(UserException ue) {
-			Log.e(LOG_NAME, "There is no current user. ", ue);
-		}
-		return events;
+        List<Event> events = new ArrayList<>();
+        try {
+            User user = UserHelper.getInstance(mApplicationContext).readCurrentUser();
+            if (user != null) {
+                events = getEventsByUser(user);
+            }
+        } catch(UserException ue) {
+            Log.e(LOG_NAME, "There is no current user. ", ue);
+        }
+        return events;
 	}
 
 	public List<Event> getEventsByUser(User pUser) {
-		List<Event> events = new ArrayList<Event>();
+		List<Event> events = new ArrayList<>();
 		List<Team> teams = TeamHelper.getInstance(mApplicationContext).getTeamsByUser(pUser);
 		for(Team team : teams) {
 			for(Event e : EventHelper.getInstance(mApplicationContext).getEventsByTeam(team)) {
@@ -208,9 +210,9 @@ public class EventHelper extends DaoHelper<Event> {
     public Event getCurrentEvent() {
         Event event = null;
         try {
-            User u = UserHelper.getInstance(mApplicationContext).readCurrentUser();
-            if(u != null) {
-                event = u.getCurrentEvent();
+            User user = UserHelper.getInstance(mApplicationContext).readCurrentUser();
+            if (user != null) {
+                event = user.getUserLocal().getCurrentEvent();
             } else {
 				Log.d(LOG_NAME, "Current user is null.  Why?");
 			}
@@ -219,6 +221,33 @@ public class EventHelper extends DaoHelper<Event> {
         }
 
         return event;
+    }
+
+    public List<Event> getRecentEvents() throws EventException {
+        List<Event> events = new ArrayList<>();
+        try {
+            User user = UserHelper.getInstance(mApplicationContext).readCurrentUser();
+            if (user != null) {
+                List<String> recentEventIds = user.getRecentEventIds();
+                List<String> cases = new ArrayList<>(recentEventIds.size());
+                for (int i = 0; i < recentEventIds.size(); i++) {
+                    cases.add("WHEN " + recentEventIds.get(i) + " THEN " + i);
+                }
+
+                events = eventDao
+                    .queryBuilder()
+                    .orderByRaw(String.format("CASE %s %s END", Event.COLUMN_NAME_REMOTE_ID, StringUtils.join(cases, " ")))
+                    .where()
+                    .in(Event.COLUMN_NAME_REMOTE_ID, user.getRecentEventIds())
+                    .query();
+            } else {
+                Log.d(LOG_NAME, "Current user is null.");
+            }
+        } catch(Exception e) {
+            Log.e(LOG_NAME, "There was a problem reading users current event", e);
+        }
+
+        return events;
     }
 
 

@@ -2,7 +2,6 @@ package mil.nga.giat.mage.sdk.jackson.deserializer;
 
 import android.util.Log;
 
-import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 
@@ -20,14 +19,14 @@ import java.util.Map;
 import mil.nga.giat.mage.sdk.datastore.location.Location;
 import mil.nga.giat.mage.sdk.datastore.location.LocationProperty;
 import mil.nga.giat.mage.sdk.datastore.user.Event;
-import mil.nga.giat.mage.sdk.utils.DateFormatFactory;
+import mil.nga.giat.mage.sdk.utils.ISO8601DateFormatFactory;
 
 public class LocationDeserializer extends Deserializer {
 
     private static final String LOG_NAME = LocationDeserializer.class.getName();
 	
 	private GeometryDeserializer geometryDeserializer = new GeometryDeserializer();
-    private DateFormat iso8601Format = DateFormatFactory.ISO8601();
+    private DateFormat iso8601Format = ISO8601DateFormatFactory.ISO8601();
 
 	private Event event = null;
 
@@ -38,7 +37,7 @@ public class LocationDeserializer extends Deserializer {
 	public List<Location> parseUserLocations(InputStream is) throws IOException {
 		JsonParser parser = factory.createParser(is);
 
-		List<Location> locations = new ArrayList<Location>();
+		List<Location> locations = new ArrayList<>();
 
 		if (parser.nextToken() != JsonToken.START_ARRAY)
 			return locations;
@@ -53,7 +52,7 @@ public class LocationDeserializer extends Deserializer {
 	}
 
 	private Collection<Location> parseUserLocations(JsonParser parser) throws IOException {
-		Collection<Location> locations = new ArrayList<Location>();
+		Collection<Location> locations = new ArrayList<>();
 
 		if (parser.getCurrentToken() != JsonToken.START_OBJECT)
 			return locations;
@@ -74,16 +73,15 @@ public class LocationDeserializer extends Deserializer {
 	public List<Location> parseLocations(InputStream is) throws IOException {
 		JsonParser parser = factory.createParser(is);
 
-		List<Location> locations = new ArrayList<Location>();
+		List<Location> locations = new ArrayList<>();
 		locations.addAll(parseLocations(parser));
 		parser.close();
 
 		return locations;
 	}
 
-
 	private Collection<Location> parseLocations(JsonParser parser) throws IOException {
-		Collection<Location> locations = new ArrayList<Location>();
+		Collection<Location> locations = new ArrayList<>();
 		parser.nextToken();
 		while (parser.nextToken() != JsonToken.END_ARRAY) {
 			locations.add(parseLocation(parser));

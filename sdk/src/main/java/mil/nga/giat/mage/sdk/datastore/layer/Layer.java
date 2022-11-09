@@ -29,18 +29,50 @@ public class Layer implements Comparable<Layer> {
 	@DatabaseField
 	private String name;
 
+	@DatabaseField(columnName = "download_id")
+	private Long downloadId;
+
+	@DatabaseField(canBeNull = false)
+	private boolean loaded = Boolean.FALSE;
+
+	@DatabaseField(columnName = "relative_path")
+	private String relativePath;
+
 	@DatabaseField
-	private boolean loaded = false;
+	private String fileName;
+
+	@DatabaseField
+	private Long fileSize;
 
 	@DatabaseField(canBeNull = false, foreign = true, foreignAutoRefresh = true)
 	private Event event;
 
-	/**
-	 * Do NOT eager load the features!
-	 * 
-	 */
 	@ForeignCollectionField(eager = false)
-	private Collection<StaticFeature> staticFeatures = new ArrayList<StaticFeature>();
+	private Collection<StaticFeature> staticFeatures = new ArrayList<>();
+
+	@DatabaseField
+	private String url;
+
+	@DatabaseField
+	private String format;
+
+	@DatabaseField
+	private String wmsFormat;
+
+	@DatabaseField
+	private String wmsVersion;
+
+	@DatabaseField
+	private String wmsLayers;
+
+	@DatabaseField
+	private String wmsStyles;
+
+	@DatabaseField
+	private String wmsTransparent;
+
+	@DatabaseField
+	private boolean base = false;
 
 	public Layer() {
 		// ORMLite needs a no-arg constructor
@@ -90,6 +122,14 @@ public class Layer implements Comparable<Layer> {
 		this.event = event;
 	}
 
+	public Long getDownloadId() {
+		return downloadId;
+	}
+
+	public void setDownloadId(Long downloadId) {
+		this.downloadId = downloadId;
+	}
+
 	public boolean isLoaded() {
 		return loaded;
 	}
@@ -98,8 +138,88 @@ public class Layer implements Comparable<Layer> {
 		this.loaded = loaded;
 	}
 
+	public String getRelativePath() {
+		return relativePath;
+	}
+
+	public void setRelativePath(String relativePath) {
+		this.relativePath = relativePath;
+	}
+
+	public String getFileName() {
+		return fileName;
+	}
+
+	public void setFileName(String fileName) {
+		this.fileName = fileName;
+	}
+
+	public Long getFileSize() {
+		return fileSize;
+	}
+
+	public void setFileSize(Long fileSize) {
+		this.fileSize = fileSize;
+	}
+
 	public Collection<StaticFeature> getStaticFeatures() {
 		return staticFeatures;
+	}
+
+	public void setUrl(String url){this.url = url;}
+
+	public String getUrl(){return this.url;}
+
+	public void setFormat(String format){this.format = format;}
+
+	public String getFormat(){return this.format;}
+
+	public String getWmsFormat() {
+		return wmsFormat;
+	}
+
+	public void setWmsFormat(String wmsFormat) {
+		this.wmsFormat = wmsFormat;
+	}
+
+	public String getWmsVersion() {
+		return wmsVersion;
+	}
+
+	public void setWmsVersion(String wmsVersion) {
+		this.wmsVersion = wmsVersion;
+	}
+
+	public String getWmsLayers() {
+		return wmsLayers;
+	}
+
+	public void setWmsLayers(String wmsLayers) {
+		this.wmsLayers = wmsLayers;
+	}
+
+	public String getWmsStyles() {
+		return wmsStyles;
+	}
+
+	public void setWmsStyles(String wmsStyles) {
+		this.wmsStyles = wmsStyles;
+	}
+
+	public String getWmsTransparent() {
+		return wmsTransparent;
+	}
+
+	public void setWmsTransparent(String wmsTransparent) {
+		this.wmsTransparent = wmsTransparent;
+	}
+
+	public boolean getBase() {
+		return base;
+	}
+
+	public void setBase(boolean base) {
+		this.base = base;
 	}
 
 	@Override

@@ -4,8 +4,10 @@ import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
 import android.util.Log;
 
+import com.j256.ormlite.android.apptools.OpenHelperManager;
 import com.j256.ormlite.android.apptools.OrmLiteSqliteOpenHelper;
 import com.j256.ormlite.dao.Dao;
+import com.j256.ormlite.field.DataPersisterManager;
 import com.j256.ormlite.support.ConnectionSource;
 import com.j256.ormlite.table.TableUtils;
 
@@ -16,6 +18,10 @@ import mil.nga.giat.mage.sdk.datastore.location.Location;
 import mil.nga.giat.mage.sdk.datastore.location.LocationProperty;
 import mil.nga.giat.mage.sdk.datastore.observation.Attachment;
 import mil.nga.giat.mage.sdk.datastore.observation.Observation;
+import mil.nga.giat.mage.sdk.datastore.observation.ObservationErrorClassPersister;
+import mil.nga.giat.mage.sdk.datastore.observation.ObservationFavorite;
+import mil.nga.giat.mage.sdk.datastore.observation.ObservationForm;
+import mil.nga.giat.mage.sdk.datastore.observation.ObservationImportant;
 import mil.nga.giat.mage.sdk.datastore.observation.ObservationProperty;
 import mil.nga.giat.mage.sdk.datastore.staticfeature.StaticFeature;
 import mil.nga.giat.mage.sdk.datastore.staticfeature.StaticFeatureProperty;
@@ -24,6 +30,7 @@ import mil.nga.giat.mage.sdk.datastore.user.Role;
 import mil.nga.giat.mage.sdk.datastore.user.Team;
 import mil.nga.giat.mage.sdk.datastore.user.TeamEvent;
 import mil.nga.giat.mage.sdk.datastore.user.User;
+import mil.nga.giat.mage.sdk.datastore.user.UserLocal;
 import mil.nga.giat.mage.sdk.datastore.user.UserTeam;
 
 /**
@@ -41,11 +48,14 @@ public class DaoStore extends OrmLiteSqliteOpenHelper {
 	private static final String DATABASE_NAME = "mage.db";
 	private static final String LOG_NAME = DaoStore.class.getName();
 	// Making this public so we can check if it has been upgraded and log the user out
-	public static final int DATABASE_VERSION = 7;
+	public static final int DATABASE_VERSION = 21;
 
 	// Observation DAOS
 	private Dao<Observation, Long> observationDao;
+	private Dao<ObservationForm, Long> observationFormDao;
 	private Dao<ObservationProperty, Long> observationPropertyDao;
+	private Dao<ObservationImportant, Long> observationImportantDao;
+	private Dao<ObservationFavorite, Long> observationFavoriteDao;
 	private Dao<Attachment, Long> attachmentDao;
 
 	// User and Location DAOS
@@ -53,6 +63,7 @@ public class DaoStore extends OrmLiteSqliteOpenHelper {
 	private Dao<Role, Long> roleDao;
     private Dao<Event, Long> eventDao;
     private Dao<Team, Long> teamDao;
+	private Dao<UserLocal, Long> userLocalDao;
     private Dao<UserTeam, Long> userTeamDao;
     private Dao<TeamEvent, Long> teamEventDao;
 	private Dao<Location, Long> locationDao;
@@ -62,59 +73,43 @@ public class DaoStore extends OrmLiteSqliteOpenHelper {
 	private Dao<Layer, Long> layerDao;
 	private Dao<StaticFeature, Long> staticFeatureDao;
 	private Dao<StaticFeatureProperty, Long> staticFeaturePropertyDao;
-	
+
 	/**
 	 * Singleton implementation.
-	 * 
-	 * @param context
-	 * @return
+	 *
+	 * @param context context
+	 * @return the dao store
 	 */
 	public static DaoStore getInstance(Context context) {
 		if (helperInstance == null) {
-			helperInstance = new DaoStore(context);
+			OpenHelperManager.setOpenHelperClass(DaoStore.class);
+			helperInstance = OpenHelperManager.getHelper(context, DaoStore.class);
 		}
+
 		return helperInstance;
 	}
 
 	/**
 	 * Constructor that takes an android Context.
 	 * 
-	 * @param context
+	 * @param context context
 	 *
 	 */
-	private DaoStore(Context context) {
+	public DaoStore(Context context) {
 		super(context, DATABASE_NAME, null, DATABASE_VERSION);
-
-		// initialize DAOs
-		try {
-			getObservationDao();
-			getObservationPropertyDao();
-			getAttachmentDao();
-			getUserDao();
-			getRoleDao();
-            getEventDao();
-            getTeamDao();
-            getUserTeamDao();
-            getTeamEventDao();
-			getLocationDao();
-			getLocationPropertyDao();
-			getLayerDao();
-			getStaticFeatureDao();
-			getStaticFeaturePropertyDao();
-		} catch (SQLException sqle) {
-			// TODO: handle this...
-			sqle.printStackTrace();
-		}
-
 	}
 
 	public boolean isDatabaseEmpty() {
 		long countOfAllRecords = 0l;
 		try {
 			countOfAllRecords += getObservationDao().countOf();
+			countOfAllRecords += getObservationFormDao().countOf();
 			countOfAllRecords += getObservationPropertyDao().countOf();
+			countOfAllRecords += getObservationImportantDao().countOf();
+			countOfAllRecords += getObservationFavoriteDao().countOf();
 			countOfAllRecords += getAttachmentDao().countOf();
 			countOfAllRecords += getUserDao().countOf();
+			countOfAllRecords += getUserLocalDao().countOf();
 			countOfAllRecords += getRoleDao().countOf();
             countOfAllRecords += getEventDao().countOf();
             countOfAllRecords += getTeamDao().countOf();
@@ -134,10 +129,14 @@ public class DaoStore extends OrmLiteSqliteOpenHelper {
 
 	private void createTables() throws SQLException {
 		TableUtils.createTable(connectionSource, Observation.class);
+		TableUtils.createTable(connectionSource, ObservationForm.class);
 		TableUtils.createTable(connectionSource, ObservationProperty.class);
+		TableUtils.createTable(connectionSource, ObservationImportant.class);
+		TableUtils.createTable(connectionSource, ObservationFavorite.class);
 		TableUtils.createTable(connectionSource, Attachment.class);
 
 		TableUtils.createTable(connectionSource, User.class);
+		TableUtils.createTable(connectionSource, UserLocal.class);
 		TableUtils.createTable(connectionSource, Role.class);
         TableUtils.createTable(connectionSource, Event.class);
         TableUtils.createTable(connectionSource, Team.class);
@@ -149,6 +148,8 @@ public class DaoStore extends OrmLiteSqliteOpenHelper {
 		TableUtils.createTable(connectionSource, Layer.class);
 		TableUtils.createTable(connectionSource, StaticFeature.class);
 		TableUtils.createTable(connectionSource, StaticFeatureProperty.class);
+
+		DataPersisterManager.registerDataPersisters(ObservationErrorClassPersister.getSingleton());
 	}
 
 	@Override
@@ -163,10 +164,15 @@ public class DaoStore extends OrmLiteSqliteOpenHelper {
 	private void dropTables() throws SQLException {
 		TableUtils.dropTable(connectionSource, Observation.class, Boolean.TRUE);
 
+		TableUtils.dropTable(connectionSource, ObservationForm.class, Boolean.TRUE);
 		TableUtils.dropTable(connectionSource, ObservationProperty.class, Boolean.TRUE);
+		TableUtils.dropTable(connectionSource, ObservationImportant.class, Boolean.TRUE);
+		TableUtils.dropTable(connectionSource, ObservationFavorite.class, Boolean.TRUE);
 		TableUtils.dropTable(connectionSource, Attachment.class, Boolean.TRUE);
 
 		TableUtils.dropTable(connectionSource, User.class, Boolean.TRUE);
+		TableUtils.dropTable(connectionSource, UserLocal.class, Boolean.TRUE);
+
 		TableUtils.dropTable(connectionSource, Role.class, Boolean.TRUE);
         TableUtils.dropTable(connectionSource, Event.class, Boolean.TRUE);
         TableUtils.dropTable(connectionSource, Team.class, Boolean.TRUE);
@@ -201,8 +207,30 @@ public class DaoStore extends OrmLiteSqliteOpenHelper {
 
 	@Override
 	public void close() {
-		helperInstance = null;
 		super.close();
+
+		helperInstance = null;
+
+		observationDao = null;
+		observationFormDao = null;
+		observationPropertyDao = null;
+		observationImportantDao = null;
+		observationFavoriteDao = null;
+		attachmentDao = null;
+
+		userDao = null;
+		roleDao = null;
+		eventDao = null;
+		teamDao = null;
+		userLocalDao = null;
+		userTeamDao = null;
+		teamEventDao = null;
+		locationDao = null;
+		locationPropertyDao = null;
+
+		layerDao = null;
+		staticFeatureDao = null;
+		staticFeaturePropertyDao = null;
 	}
 
 	/**
@@ -219,6 +247,19 @@ public class DaoStore extends OrmLiteSqliteOpenHelper {
 	}
 
 	/**
+	 * Getter for the FormDao
+	 *
+	 * @return This instance's PropertyDao
+	 * @throws SQLException
+	 */
+	public Dao<ObservationForm, Long> getObservationFormDao() throws SQLException {
+		if (observationFormDao == null) {
+			observationFormDao = getDao(ObservationForm.class);
+		}
+		return observationFormDao;
+	}
+
+	/**
 	 * Getter for the PropertyDao
 	 * 
 	 * @return This instance's PropertyDao
@@ -229,6 +270,32 @@ public class DaoStore extends OrmLiteSqliteOpenHelper {
 			observationPropertyDao = getDao(ObservationProperty.class);
 		}
 		return observationPropertyDao;
+	}
+
+	/**
+	 * Getter for the ObservationImportantDao
+	 *
+	 * @return This instance's ObservationImportantDao
+	 * @throws SQLException
+	 */
+	public Dao<ObservationImportant, Long> getObservationImportantDao() throws SQLException {
+		if (observationImportantDao == null) {
+			observationImportantDao = getDao(ObservationImportant.class);
+		}
+		return observationImportantDao;
+	}
+
+	/**
+	 * Getter for the ObservationFavoriteDao
+	 *
+	 * @return This instance's ObservationFavoriteDao
+	 * @throws SQLException
+	 */
+	public Dao<ObservationFavorite, Long> getObservationFavoriteDao() throws SQLException {
+		if (observationFavoriteDao == null) {
+			observationFavoriteDao = getDao(ObservationFavorite.class);
+		}
+		return observationFavoriteDao;
 	}
 
 	/**
@@ -256,6 +323,20 @@ public class DaoStore extends OrmLiteSqliteOpenHelper {
 		}
 		return userDao;
 	}
+
+	/**
+	 * Getter for the UserLocalDao
+	 *
+	 * @return This instance's UserLocalDao
+	 * @throws SQLException
+	 */
+	public Dao<UserLocal, Long> getUserLocalDao() throws SQLException {
+		if (userLocalDao == null) {
+			userLocalDao = getDao(UserLocal.class);
+		}
+		return userLocalDao;
+	}
+
 
 	/**
 	 * Getter for the RoleDao

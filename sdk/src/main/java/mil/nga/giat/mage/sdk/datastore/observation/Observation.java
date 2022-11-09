@@ -1,29 +1,39 @@
 package mil.nga.giat.mage.sdk.datastore.observation;
 
-import android.support.annotation.NonNull;
+import android.net.Uri;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.j256.ormlite.field.DataType;
 import com.j256.ormlite.field.DatabaseField;
 import com.j256.ormlite.field.ForeignCollectionField;
 import com.j256.ormlite.table.DatabaseTable;
-import com.vividsolutions.jts.geom.Geometry;
 
 import org.apache.commons.lang3.builder.CompareToBuilder;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
 import mil.nga.giat.mage.sdk.Temporal;
 import mil.nga.giat.mage.sdk.datastore.user.Event;
+import mil.nga.giat.mage.sdk.utils.GeometryUtility;
+import mil.nga.sf.Geometry;
+import mil.nga.sf.Point;
+import mil.nga.sf.util.GeometryUtils;
 
 @DatabaseTable(tableName = "observations")
 public class Observation implements Comparable<Observation>, Temporal {
-    
+
     // name _id needed for cursor adapters
     @DatabaseField(generatedId = true)
     private Long _id;
@@ -34,21 +44,21 @@ public class Observation implements Comparable<Observation>, Temporal {
     @DatabaseField(unique = true, columnName = "url")
     private String url;
 
-	/**
-	 * This is really the remote id!
-	 */
-	@DatabaseField(columnName = "user_id", canBeNull = false)
-	private String userId = "-1";
+    /**
+    * This is really the remote id!
+    */
+    @DatabaseField(columnName = "user_id", canBeNull = false)
+    private String userId = "-1";
 
     @DatabaseField(columnName = "device_id")
     private String deviceId;
-    
+
     /**
      * This is the time the server created or updated the observation.  It can also be a local time, if no time from the server is given.
      */
     @DatabaseField(canBeNull = false, columnName = "last_modified", dataType = DataType.DATE_LONG)
     private Date lastModified = null;
-    
+
     /**
      * This is the time the observation was made/reported at.
      */
@@ -61,34 +71,52 @@ public class Observation implements Comparable<Observation>, Temporal {
     @DatabaseField(canBeNull = false)
     private State state = State.ACTIVE;
 
-	@DatabaseField(canBeNull = false, dataType = DataType.SERIALIZABLE)
-	private Geometry geometry;
+    @DatabaseField(columnName = "geometry", canBeNull = false, dataType = DataType.BYTE_ARRAY)
+    private byte[] geometryBytes;
+
+    @DatabaseField
+    private String provider;
+
+    @DatabaseField
+    private Float accuracy;
+
+    @DatabaseField
+    private String locationDelta;
 
     @DatabaseField(canBeNull = false, foreign = true, foreignAutoRefresh = true)
     private Event event;
 
-    @ForeignCollectionField(eager = true)
-    private Collection<ObservationProperty> properties = new ArrayList<ObservationProperty>();
+    @ForeignCollectionField(eager = true, maxEagerLevel = 2)
+    private Collection<ObservationForm> forms = new ArrayList<>();
 
     @ForeignCollectionField(eager = true)
-    private Collection<Attachment> attachments = new ArrayList<Attachment>();
+    private Collection<Attachment> attachments = new ArrayList<>();
+
+    @DatabaseField(canBeNull = true, foreign = true, foreignAutoRefresh = true, foreignAutoCreate = true)
+    private ObservationImportant important;
+
+    @DatabaseField(persisterClass = ObservationErrorClassPersister.class, columnName = "error")
+    private ObservationError error;
+
+    @ForeignCollectionField(eager = true)
+    private Collection<ObservationFavorite> favorites = new ArrayList<>();
 
     public Observation() {
         // ORMLite needs a no-arg constructor
     }
 
-    public Observation(Geometry geometry, Collection<ObservationProperty> pProperties, Collection<Attachment> pAttachments, Date timestamp, Event event) {
-        this(null, null, geometry, pProperties, pAttachments, timestamp, event);
+    public Observation(Geometry geometry, Collection<ObservationForm> forms, Collection<Attachment> attachments, Date timestamp, Event event) {
+        this(null, null, geometry, forms, attachments, timestamp, event);
         this.dirty = true;
     }
 
-    public Observation(String remoteId, Date lastModified, Geometry geometry, Collection<ObservationProperty> pProperties, Collection<Attachment> pAttachments, Date timestamp, Event event) {
+    public Observation(String remoteId, Date lastModified, Geometry geometry, Collection<ObservationForm> forms, Collection<Attachment> attachments, Date timestamp, Event event) {
         super();
         this.remoteId = remoteId;
         this.lastModified = lastModified;
-        this.geometry = geometry;
-        this.properties = pProperties;
-        this.attachments = pAttachments;
+        this.geometryBytes = GeometryUtility.toGeometryBytes(geometry);
+        this.forms = forms;
+        this.attachments = attachments;
         this.dirty = false;
         this.timestamp = timestamp;
         this.event = event;
@@ -142,13 +170,45 @@ public class Observation implements Comparable<Observation>, Temporal {
         this.state = state;
     }
 
-	public Geometry getGeometry() {
-		return geometry;
+	  public byte[] getGeometryBytes() {
+		return geometryBytes;
 	}
 
-	public void setGeometry(Geometry geometry) {
-		this.geometry = geometry;
+	  public void setGeometryBytes(byte[] geometryBytes) {
+		this.geometryBytes = geometryBytes;
 	}
+
+    public Geometry getGeometry() {
+        return GeometryUtility.toGeometry(getGeometryBytes());
+    }
+
+    public void setGeometry(Geometry geometry) {
+        this.geometryBytes = GeometryUtility.toGeometryBytes(geometry);
+    }
+
+    public String getProvider() {
+        return provider;
+    }
+
+    public void setProvider(String provider) {
+        this.provider = provider;
+    }
+
+    public Float getAccuracy() {
+        return accuracy;
+    }
+
+    public void setAccuracy(Float accuracy) {
+        this.accuracy = accuracy;
+    }
+
+    public String getLocationDelta() {
+        return locationDelta;
+    }
+
+    public void setLocationDelta(String locationDelta) {
+        this.locationDelta = locationDelta;
+    }
 
     public Event getEvent() {
         return event;
@@ -158,10 +218,18 @@ public class Observation implements Comparable<Observation>, Temporal {
         this.event = event;
     }
 
+    public ObservationError getError() {
+        return error;
+    }
+
+    public void setError(ObservationError error) {
+        this.error = error;
+    }
+
     public Date getLastModified() {
         return lastModified;
     }
-    
+
     public void setLastModified(Date lastModified) {
         this.lastModified = lastModified;
     }
@@ -169,31 +237,17 @@ public class Observation implements Comparable<Observation>, Temporal {
     public boolean isDirty() {
         return dirty;
     }
-    
+
     public void setDirty(boolean dirty) {
         this.dirty = dirty;
     }
 
-    public Collection<ObservationProperty> getProperties() {
-        return properties;
+    public Collection<ObservationForm> getForms() {
+        return forms;
     }
 
-    public void setProperties(Collection<ObservationProperty> properties) {
-        this.properties = properties;
-    }
-
-    public void addProperties(Collection<ObservationProperty> properties) {
-
-        Map<String, ObservationProperty> newPropertiesMap = new HashMap<String, ObservationProperty>();
-        for (ObservationProperty property : properties) {
-            property.setObservation(this);
-            newPropertiesMap.put(property.getKey(), property);
-        }
-
-        Map<String, ObservationProperty> oldPropertiesMap = getPropertiesMap();
-
-        oldPropertiesMap.putAll(newPropertiesMap);
-        this.properties = oldPropertiesMap.values();
+    public void setForms(Collection<ObservationForm> forms) {
+        this.forms = forms;
     }
 
     public Collection<Attachment> getAttachments() {
@@ -204,19 +258,63 @@ public class Observation implements Comparable<Observation>, Temporal {
         this.attachments = attachments;
     }
 
+    public @Nullable ObservationImportant getImportant() {
+        return important;
+    }
+
+    public void setImportant(ObservationImportant important) {
+        this.important = important;
+    }
+
+    public Collection<ObservationFavorite> getFavorites() {
+        return favorites;
+    }
+
+    public void setFavorites(Collection<ObservationFavorite> favorites) {
+        this.favorites = favorites;
+    }
+
     /**
      * A convenience method used for returning an Observation's properties in a
      * more useful data-structure.
-     * 
+     *
      * @return
      */
-    public final Map<String, ObservationProperty> getPropertiesMap() {
-        Map<String, ObservationProperty> propertiesMap = new HashMap<String, ObservationProperty>();
-        for (ObservationProperty property : properties) {
-            propertiesMap.put(property.getKey(), property);
+    public final Map<Long, ObservationForm> getFormsMap() {
+        Map<Long, ObservationForm> formsMap = new HashMap<>();
+        for (ObservationForm form : forms) {
+            formsMap.put(form.getId(), form);
         }
 
-        return propertiesMap;
+        return formsMap;
+    }
+
+    /**
+     * A convenience method used for returning an Observation's favorites in a
+     * more useful data-structure.
+     *
+     * Map key is the userId who favorited the observation.
+     *
+     * @return
+     */
+    public final Map<String, ObservationFavorite> getFavoritesMap() {
+        Map<String, ObservationFavorite> favoritesMap = new HashMap<>();
+        for (ObservationFavorite favorite : favorites) {
+            favoritesMap.put(favorite.getUserId(), favorite);
+        }
+
+        return favoritesMap;
+    }
+
+    public Uri getGoogleMapsUri() {
+        DecimalFormat latLngFormat = new DecimalFormat("###.#####");
+        String uriString = "http://maps.google.com/maps";
+
+        Geometry geometry = getGeometry();
+        Point point = GeometryUtils.getCentroid(geometry);
+        uriString += String.format("?daddr=%1$s,%2$s",  latLngFormat.format(point.getY()), latLngFormat.format(point.getX()));
+
+        return Uri.parse(uriString);
     }
 
     @Override
@@ -250,12 +348,89 @@ public class Observation implements Comparable<Observation>, Temporal {
         return new EqualsBuilder().append(_id, other._id).append(remoteId, other.remoteId).isEquals();
     }
 
-	@Override
-	public Date getTimestamp() {
-		return timestamp;
-	}
+    @Override
+    public Date getTimestamp() {
+    return timestamp;
+    }
 
-	public void setTimestamp(Date timestamp) {
-		this.timestamp = timestamp;
-	}
+    public void setTimestamp(Date timestamp) {
+    this.timestamp = timestamp;
+    }
+
+    public ObservationProperty getPrimaryMapField() {
+        return getField("primaryField");
+    }
+
+    public ObservationProperty getSecondaryMapField() {
+        return getField("variantField");
+    }
+
+    public ObservationProperty getPrimaryFeedField() {
+        return getField("primaryFeedField");
+    }
+
+    public ObservationProperty getSecondaryFeedField() {
+        return getField("secondaryFeedField");
+    }
+
+    public ObservationProperty getField(String name) {
+        ObservationProperty field = null;
+        Collection<ObservationForm> forms = getForms();
+        if (forms != null && forms.size() > 0) {
+            ObservationForm form = forms.iterator().next();
+            JsonObject eventForm = getEventForm(form.getFormId());
+            if (eventForm != null) {
+                JsonElement fieldName = eventForm.get(name);
+                if (fieldName != null && !fieldName.isJsonNull()) {
+                    field = form.getPropertiesMap().get(fieldName.getAsString());
+                }
+
+            }
+        }
+
+        return field;
+    }
+
+    public JsonElement getStyle() {
+        JsonElement style = null;
+        Collection<ObservationForm> forms = getForms();
+        if (forms != null && forms.size() > 0) {
+            ObservationForm form = forms.iterator().next();
+            JsonObject eventForm = getEventForm(form.getFormId());
+            if (eventForm != null) {
+                style = eventForm.get("style");
+            }
+        }
+
+        return style;
+    }
+
+    private JsonObject getEventForm(Long formId) {
+        Iterator<JsonElement> iterator = event.getForms().iterator();
+        while (iterator.hasNext()) {
+            JsonObject formJson = (JsonObject) iterator.next();
+            Long id = formJson.get("id").getAsLong();
+            if (id.equals(formId)) {
+                return formJson;
+            }
+        }
+
+        return null;
+    }
+
+    public boolean hasValidationError() {
+        ObservationError observationError = getError();
+        return observationError != null && observationError.getStatusCode() != null;
+    }
+
+    public String errorMessage() {
+        String message = "";
+        ObservationError observationError = getError();
+        if (observationError != null) {
+            message = observationError.getMessage() != null ? observationError.getMessage() : observationError.getDescription();
+        }
+
+        return message;
+    }
+
 }

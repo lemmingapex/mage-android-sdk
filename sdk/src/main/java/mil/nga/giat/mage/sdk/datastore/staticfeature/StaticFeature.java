@@ -4,7 +4,6 @@ import com.j256.ormlite.field.DataType;
 import com.j256.ormlite.field.DatabaseField;
 import com.j256.ormlite.field.ForeignCollectionField;
 import com.j256.ormlite.table.DatabaseTable;
-import com.vividsolutions.jts.geom.Geometry;
 
 import org.apache.commons.lang3.builder.CompareToBuilder;
 import org.apache.commons.lang3.builder.EqualsBuilder;
@@ -16,21 +15,27 @@ import java.util.HashMap;
 import java.util.Map;
 
 import mil.nga.giat.mage.sdk.datastore.layer.Layer;
+import mil.nga.giat.mage.sdk.utils.GeometryUtility;
+import mil.nga.sf.Geometry;
 
 @DatabaseTable(tableName = "staticfeatures")
 public class StaticFeature implements Comparable<StaticFeature> {
 
+	public static final String STATIC_FEATURE_ID = "id";
+	public static final String STATIC_FEATURE_REMOTE_ID = "remote_id";
+	public static final String STATIC_FEATURE_LAYER_ID = "layer_id";
+
 	@DatabaseField(generatedId = true)
 	private Long id;
 
-	@DatabaseField(unique = true, columnName = "remote_id")
+	@DatabaseField(unique = true, columnName = STATIC_FEATURE_REMOTE_ID)
 	private String remoteId;
 
-	@DatabaseField(canBeNull = false, foreign = true, foreignAutoRefresh = true)
+	@DatabaseField(canBeNull = false, foreign = true, foreignAutoRefresh = true, columnName = STATIC_FEATURE_LAYER_ID)
 	private Layer layer;
 
-	@DatabaseField(canBeNull = false, dataType = DataType.SERIALIZABLE)
-	private Geometry geometry;
+	@DatabaseField(columnName = "geometry", canBeNull = false, dataType = DataType.BYTE_ARRAY)
+	private byte[] geometryBytes;
 
 	@ForeignCollectionField(eager = true)
 	private Collection<StaticFeatureProperty> properties = new ArrayList<StaticFeatureProperty>();
@@ -49,7 +54,7 @@ public class StaticFeature implements Comparable<StaticFeature> {
 	public StaticFeature(String remoteId, Geometry geometry, Layer layer) {
 		super();
 		this.remoteId = remoteId;
-		this.geometry = geometry;
+		this.geometryBytes = GeometryUtility.toGeometryBytes(geometry);
 		this.layer = layer;
 	}
 
@@ -73,12 +78,20 @@ public class StaticFeature implements Comparable<StaticFeature> {
 		this.layer = layer;
 	}
 
+	public byte[] getGeometryBytes() {
+		return geometryBytes;
+	}
+
+	public void setGeometryBytes(byte[] geometryBytes) {
+		this.geometryBytes = geometryBytes;
+	}
+
 	public Geometry getGeometry() {
-		return geometry;
+		return GeometryUtility.toGeometry(getGeometryBytes());
 	}
 
 	public void setGeometry(Geometry geometry) {
-		this.geometry = geometry;
+		this.geometryBytes = GeometryUtility.toGeometryBytes(geometry);
 	}
 
 	public Collection<StaticFeatureProperty> getProperties() {

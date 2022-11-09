@@ -1,7 +1,5 @@
 package mil.nga.giat.mage.sdk.gson.serializer;
 
-import android.content.Context;
-
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
@@ -22,7 +20,7 @@ import java.util.List;
 import mil.nga.giat.mage.sdk.datastore.location.Location;
 import mil.nga.giat.mage.sdk.datastore.location.LocationProperty;
 import mil.nga.giat.mage.sdk.datastore.observation.Observation;
-import mil.nga.giat.mage.sdk.utils.DateFormatFactory;
+import mil.nga.giat.mage.sdk.utils.ISO8601DateFormatFactory;
 
 /**
  * Used to convert a Location object into a json String.
@@ -32,11 +30,7 @@ import mil.nga.giat.mage.sdk.utils.DateFormatFactory;
  */
 public class LocationSerializer implements JsonSerializer<Collection<Location>> {
 
-    private DateFormat iso8601Format = DateFormatFactory.ISO8601();
-
-	public LocationSerializer(Context context) {
-		super();
-	}
+    private DateFormat iso8601Format = ISO8601DateFormatFactory.ISO8601();
 
 	@Override
 	public JsonElement serialize(Collection<Location> locations, Type locationType, JsonSerializationContext context) {
@@ -71,9 +65,9 @@ public class LocationSerializer implements JsonSerializer<Collection<Location>> 
 	 * 
 	 * @return A Gson object that can be used to convert {@link Observation} object into a JSON string.
 	 */
-	public static Gson getGsonBuilder(Context context) {
+	public static Gson getGsonBuilder() {
 		GsonBuilder gsonBuilder = new GsonBuilder();
-		gsonBuilder.registerTypeAdapter(new TypeToken<List<Location>>(){}.getType(), new LocationSerializer(context));
+		gsonBuilder.registerTypeAdapter(new TypeToken<List<Location>>(){}.getType(), new LocationSerializer());
 		return gsonBuilder.create();
 	}
 

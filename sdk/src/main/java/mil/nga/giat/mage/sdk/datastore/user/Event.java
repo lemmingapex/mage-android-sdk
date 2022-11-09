@@ -1,5 +1,7 @@
 package mil.nga.giat.mage.sdk.datastore.user;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.j256.ormlite.field.DatabaseField;
@@ -8,13 +10,19 @@ import com.j256.ormlite.table.DatabaseTable;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+
 @DatabaseTable(tableName = "events")
 public class Event {
+
+	public static final String COLUMN_NAME_REMOTE_ID = "remote_id";
 
 	@DatabaseField(generatedId = true)
 	private Long _id;
 
-	@DatabaseField(unique = true, columnName = "remote_id")
+	@DatabaseField(unique = true, columnName = COLUMN_NAME_REMOTE_ID)
 	private String remoteId;
 
 	@DatabaseField(canBeNull = false)
@@ -23,19 +31,29 @@ public class Event {
     @DatabaseField
     private String description;
 
+	@DatabaseField
+	private Integer minObservationForms;
+
+	@DatabaseField
+	private Integer maxObservationForms;
+
     @DatabaseField
-    private String form;
+	private String forms;
+
+	@DatabaseField
+	private String acl;
 	
 	public Event() {
 		// ORMLite needs a no-arg constructor
 	}
 
-	public Event(String remoteId, String name, String description, String form) {
+	public Event(String remoteId, String name, String description, String forms, String acl) {
 		super();
 		this.remoteId = remoteId;
 		this.name = name;
 		this.description = description;
-		this.form = form;
+		this.forms = forms;
+		this.acl = acl;
 	}
 
 	public Long getId() {
@@ -62,8 +80,53 @@ public class Event {
 		return description;
 	}
 
-	public JsonObject getForm() {
-        return new JsonParser().parse(form).getAsJsonObject();
+	public Integer getMinObservationForms() {
+		return minObservationForms;
+	}
+
+	public void setMinObservationForms(Integer minObservationForms) {
+		this.minObservationForms = minObservationForms;
+	}
+
+	public Integer getMaxObservationForms() {
+		return maxObservationForms;
+	}
+
+	public void setMaxObservationForms(Integer maxObservationForms) {
+		this.maxObservationForms = maxObservationForms;
+	}
+
+	public JsonArray getForms() {
+        return new JsonParser().parse(forms).getAsJsonArray();
+	}
+
+	public JsonArray getNonArchivedForms() {
+		JsonArray jsonForms = getForms();
+		Iterator<JsonElement> iterator = jsonForms.iterator();
+
+		while (iterator.hasNext()) {
+			JsonObject jsonForm = iterator.next().getAsJsonObject();
+			if (jsonForm.has("archived") && jsonForm.get("archived").getAsBoolean()) {
+				iterator.remove();
+			}
+		}
+
+		return jsonForms;
+	}
+
+	public Map<Long, JsonObject> getFormMap() {
+		Map<Long, JsonObject> formMap = new HashMap<>();
+		Iterator<JsonElement> iterator = new JsonParser().parse(forms).getAsJsonArray().iterator();
+		while (iterator.hasNext()) {
+			JsonObject form = (JsonObject) iterator.next();
+			formMap.put(form.get("id").getAsLong(), form);
+		}
+
+		return formMap;
+	}
+
+	public JsonObject getAcl() {
+		return new JsonParser().parse(acl).getAsJsonObject();
 	}
 
 	@Override

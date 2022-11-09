@@ -3,7 +3,10 @@ package mil.nga.giat.mage.sdk.datastore.observation;
 import com.j256.ormlite.field.DatabaseField;
 import com.j256.ormlite.table.DatabaseTable;
 
+import org.apache.commons.lang3.StringUtils;
+
 import java.io.Serializable;
+import java.util.ArrayList;
 
 import mil.nga.giat.mage.sdk.datastore.Property;
 
@@ -11,7 +14,7 @@ import mil.nga.giat.mage.sdk.datastore.Property;
 public class ObservationProperty extends Property {
 
 	@DatabaseField(foreign = true, uniqueCombo = true)
-	private Observation observation;
+	private ObservationForm observationForm;
 
 	public ObservationProperty() {
 		// ORMLite needs a no-arg constructor
@@ -21,12 +24,22 @@ public class ObservationProperty extends Property {
 		super(pKey, pValue);
 	}
 
-	public Observation getObservation() {
-		return observation;
+	public ObservationForm getObservation() {
+		return observationForm;
 	}
 
-	public void setObservation(Observation observation) {
-		this.observation = observation;
+	public void setObservationForm(ObservationForm observationForm) {
+		this.observationForm = observationForm;
 	}
 
+	public boolean isEmpty() {
+		Serializable value = getValue();
+		if (value instanceof String) {
+			return StringUtils.isBlank(value.toString());
+		} else if (value instanceof ArrayList) {
+			return ((ArrayList) value).size() == 0;
+		} else {
+			return value == null;
+		}
+	}
 }

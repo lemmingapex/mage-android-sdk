@@ -21,7 +21,7 @@ import mil.nga.giat.mage.sdk.R;
 public class UserUtility {
 
 	private static final String LOG_NAME = UserUtility.class.getName();
-    private DateFormat iso8601Format = DateFormatFactory.ISO8601();
+    private DateFormat iso8601Format = ISO8601DateFormatFactory.ISO8601();
 
 	private UserUtility() {
 	}
@@ -62,6 +62,6 @@ public class UserUtility {
 		SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(mContext);
 		Editor editor = sharedPreferences.edit();
 		editor.remove(mContext.getString(R.string.tokenKey)).commit();
-        editor.remove(mContext.getString(R.string.tokenExpirationDateKey)).commit();
+		editor.remove(mContext.getString(R.string.tokenExpirationDateKey)).commit();
 	}
 }

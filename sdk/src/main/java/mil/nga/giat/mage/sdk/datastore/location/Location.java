@@ -1,12 +1,11 @@
 package mil.nga.giat.mage.sdk.datastore.location;
 
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 
 import com.j256.ormlite.field.DataType;
 import com.j256.ormlite.field.DatabaseField;
 import com.j256.ormlite.field.ForeignCollectionField;
 import com.j256.ormlite.table.DatabaseTable;
-import com.vividsolutions.jts.geom.Geometry;
 
 import org.apache.commons.lang3.builder.CompareToBuilder;
 import org.apache.commons.lang3.builder.EqualsBuilder;
@@ -21,9 +20,15 @@ import java.util.Map;
 import mil.nga.giat.mage.sdk.Temporal;
 import mil.nga.giat.mage.sdk.datastore.user.Event;
 import mil.nga.giat.mage.sdk.datastore.user.User;
+import mil.nga.giat.mage.sdk.utils.GeometryUtility;
+import mil.nga.sf.Geometry;
 
 @DatabaseTable(tableName = "locations")
 public class Location implements Comparable<Location>, Temporal {
+
+	public static final String COLUMN_NAME_USER_ID = "user_id";
+	public static final String COLUMN_NAME_EVENT_ID = "event_id";
+	public static final String COLUMN_NAME_TIMESTAMP = "timestamp";
 
 	// name _id needed for cursor adapters
 	@DatabaseField(generatedId = true)
@@ -32,13 +37,13 @@ public class Location implements Comparable<Location>, Temporal {
 	@DatabaseField(unique = true, columnName = "remote_id")
 	private String remoteId;
 
-	@DatabaseField(canBeNull = false, foreign = true, foreignAutoRefresh = true)
+	@DatabaseField(canBeNull = false, foreign = true, foreignAutoRefresh = true, columnName = COLUMN_NAME_USER_ID)
 	private User user;
 
     /**
      * This is the time the location was reported at.  Time the GPS picked up.
      */
-    @DatabaseField(canBeNull = false, dataType = DataType.DATE_LONG)
+    @DatabaseField(canBeNull = false, dataType = DataType.DATE_LONG, columnName = COLUMN_NAME_TIMESTAMP)
     private Date timestamp = new Date(0);
     
     /**
@@ -53,10 +58,10 @@ public class Location implements Comparable<Location>, Temporal {
 	@ForeignCollectionField(eager = true)
 	private Collection<LocationProperty> properties  = new ArrayList<LocationProperty>();
 
-	@DatabaseField(canBeNull = false, dataType = DataType.SERIALIZABLE)
-	private Geometry geometry;
+	@DatabaseField(columnName = "geometry", canBeNull = false, dataType = DataType.BYTE_ARRAY)
+	private byte[] geometryBytes;
 
-	@DatabaseField(canBeNull = false, foreign = true, foreignAutoRefresh = true)
+	@DatabaseField(canBeNull = false, foreign = true, foreignAutoRefresh = true, columnName = COLUMN_NAME_EVENT_ID)
 	private Event event;
 
 	public Location() {
@@ -74,7 +79,7 @@ public class Location implements Comparable<Location>, Temporal {
 		this.lastModified = lastModified;
 		this.type = type;
 		this.properties = properties;
-		this.geometry = geometry;
+		this.geometryBytes = GeometryUtility.toGeometryBytes(geometry);
 		this.timestamp = timestamp;
 		this.event = event;
 	}
@@ -136,12 +141,20 @@ public class Location implements Comparable<Location>, Temporal {
 		this.properties = properties;
 	}
 
+	public byte[] getGeometryBytes() {
+		return geometryBytes;
+	}
+
+	public void setGeometryBytes(byte[] geometryBytes) {
+		this.geometryBytes = geometryBytes;
+	}
+
 	public Geometry getGeometry() {
-		return geometry;
+		return GeometryUtility.toGeometry(getGeometryBytes());
 	}
 
 	public void setGeometry(Geometry geometry) {
-		this.geometry = geometry;
+		this.geometryBytes = GeometryUtility.toGeometryBytes(geometry);
 	}
 	
 	/**
